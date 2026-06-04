@@ -4,11 +4,11 @@ warnings.filterwarnings("ignore", category=UserWarning)
 from flask import Flask, render_template, request
 import spacy
 from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity # <-- NEW: From your friend's code
 import numpy as np
 import nltk
 from nltk.corpus import wordnet as wn
 
-# Ensure WordNet dictionaries are downloaded quietly
 nltk.download('wordnet', quiet=True)
 nltk.download('omw-1.4', quiet=True)
 
@@ -58,12 +58,12 @@ def get_wup_similarity(sent_doc, top_doc_words):
 def extract_top_sentences(original_sentences, cleaned_sentences, top_n=3):
     alpha, beta, gamma, delta = 0.4, 0.2, 0.2, 0.2
 
-    # Smart target capping to prevent crashes on short paragraphs
     target_n = min(top_n, len(original_sentences))
 
     if target_n == 0:
         return [], [], None
 
+    # 1. Base Matrix Setup
     vectorizer = TfidfVectorizer()
     tfidf_matrix = vectorizer.fit_transform(cleaned_sentences)
     
@@ -77,8 +77,8 @@ def extract_top_sentences(original_sentences, cleaned_sentences, top_n=3):
 
     final_scores = []
     scorecard = []
-    avg_tfidf, avg_pos, avg_sem, avg_str = 0, 0, 0, 0
     
+    # 2. Calculate Base Heuristic Scores
     for idx, sent_text in enumerate(original_sentences):
         sent_doc = nlp(sent_text)
         
@@ -101,9 +101,47 @@ def extract_top_sentences(original_sentences, cleaned_sentences, top_n=3):
         })
 
     final_scores = np.array(final_scores)
-    top_indices = final_scores.argsort()[-target_n:]
-    top_indices.sort() 
+
+    # ==========================================
+    # 3. NEW: THE MMR LOOP (Credit: Fabian da goat)
+    # ==========================================
     
+    # Calculate how mathematically similar every sentence is to every other sentence
+    similarity_matrix = cosine_similarity(tfidf_matrix)
+    
+    lambda_param = 0.7  # 70% focus on relevance, 30% penalty for redundancy
+    
+    # Pick the absolute best sentence to start
+    selected_indices = [int(np.argmax(final_scores))]
+    candidates = list(set(range(len(original_sentences))) - set(selected_indices))
+
+    # Loop until we have the target number of bullets
+    while len(selected_indices) < target_n and candidates:
+        mmr_scores = []
+        
+        for candidate in candidates:
+            # Relevance (Our custom heuristic score)
+            relevance = final_scores[candidate]
+            
+            # Redundancy (Similarity to bullets we ALREADY picked)
+            max_similarity = max([similarity_matrix[candidate][s] for s in selected_indices])
+            
+            # The MMR Math
+            mmr_score = (lambda_param * relevance) - ((1 - lambda_param) * max_similarity)
+            mmr_scores.append((candidate, mmr_score))
+
+        # Pick the sentence that survived the redundancy penalty
+        best_candidate = max(mmr_scores, key=lambda x: x[1])[0]
+        
+        selected_indices.append(best_candidate)
+        candidates.remove(best_candidate)
+
+    # Sort them back into chronological document order
+    top_indices = sorted(selected_indices)
+    # ==========================================
+
+    # 4. Finalize Analytics Data
+    avg_tfidf, avg_pos, avg_sem, avg_str = 0, 0, 0, 0
     for i in top_indices:
         scorecard[i]["is_selected"] = True
         avg_tfidf += scorecard[i]["tfidf"]
