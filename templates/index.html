@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enterprise Extractive Summarization</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-color: #f8fafc; --card-bg: #ffffff;
+            --primary: #0f172a; --accent: #2563eb;
+            --text-main: #334155; --text-muted: #64748b;
+            --border: #e2e8f0; --success-bg: #f0fdf4; --success-border: #22c55e;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background-color: var(--bg-color); color: var(--text-main);
+            margin: 0; padding: 40px 20px; display: flex; justify-content: center;
+        }
+        .container { max-width: 1200px; width: 100%; }
+        
+        .header { text-align: center; margin-bottom: 40px; }
+        .header h1 { color: var(--primary); margin: 0 0 10px 0; }
+        .header p { color: var(--text-muted); margin: 0; font-size: 1.1rem; }
+
+        .card { background: var(--card-bg); border-radius: 12px; padding: 30px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); border: 1px solid var(--border); margin-bottom: 20px; }
+        
+        textarea {
+            width: 100%; height: 160px; padding: 15px; border: 1px solid var(--border);
+            border-radius: 8px; font-size: 1rem; font-family: inherit; resize: vertical; box-sizing: border-box;
+        }
+        textarea:focus { outline: none; border-color: var(--accent); }
+
+        .controls { display: flex; justify-content: space-between; align-items: center; margin-top: 20px; }
+        .slider-wrapper { display: flex; align-items: center; gap: 15px; font-weight: 500; }
+        
+        button {
+            background-color: var(--primary); color: white; border: none; padding: 10px 24px;
+            border-radius: 6px; font-size: 1rem; font-weight: 500; cursor: pointer; transition: 0.2s;
+        }
+        button:hover { background-color: #334155; }
+        .btn-outline { background-color: transparent; border: 1px solid var(--border); color: var(--text-main); }
+        .btn-outline:hover { background-color: #f1f5f9; }
+
+        /* The Split Layout */
+        .results-container {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 20px;
+            transition: all 0.3s ease;
+        }
+        
+        .results-container.show-analytics { grid-template-columns: 1fr 1fr; }
+
+        .summary-panel, .analytics-panel {
+            background: var(--card-bg); border-radius: 12px; padding: 30px;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); border: 1px solid var(--border);
+        }
+
+        .analytics-panel { display: none; }
+        .results-container.show-analytics .analytics-panel { display: block; }
+
+        .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid var(--border); padding-bottom: 15px; }
+        .panel-header h2 { margin: 0; font-size: 1.3rem; color: var(--primary); }
+
+        .bullet-list { list-style: none; padding: 0; margin: 0; }
+        .bullet-list li { position: relative; padding-left: 25px; margin-bottom: 15px; font-size: 1.05rem; }
+        .bullet-list li::before { content: "—"; color: var(--accent); font-weight: bold; position: absolute; left: 0; top: 0; }
+
+        .chart-wrapper { width: 100%; max-width: 250px; margin: 0 auto 30px auto; }
+        
+        table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+        th, td { padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--border); }
+        th { color: var(--text-muted); font-weight: 600; text-transform: uppercase; }
+        .row-selected { background-color: var(--success-bg); border-left: 3px solid var(--success-border); }
+        
+        /* Loading Overlay */
+        .loading { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.8); z-index: 100; justify-content: center; align-items: center; flex-direction: column; }
+        .spinner { border: 4px solid var(--border); border-top: 4px solid var(--accent); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin-bottom: 15px; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+
+<div class="loading" id="loadingScreen">
+    <div class="spinner"></div>
+    <div style="font-weight: 500; color: var(--primary);">Calculating NLP Mathematics...</div>
+</div>
+
+<div class="container">
+    <div class="header">
+        <h1>NLP Summarization Engine</h1>
+        <p>Mathematical Extractive Architecture</p>
+    </div>
+
+    <div class="card">
+        <form method="POST" action="/" onsubmit="document.getElementById('loadingScreen').style.display='flex'">
+            <textarea name="raw_text" placeholder="Input source document here..." required>{{ original_text }}</textarea>
+            
+            <div class="controls">
+                <div class="slider-wrapper">
+                    <label>Extraction Target:</label>
+                    <input type="range" name="num_bullets" id="slider" min="1" max="10" value="{{ num_bullets }}" oninput="document.getElementById('sliderVal').innerText = this.value">
+                    <span id="sliderVal" style="background: var(--border); padding: 2px 8px; border-radius: 4px;">{{ num_bullets }}</span>
+                </div>
+                <button type="submit">Extract Highlights</button>
+            </div>
+        </form>
+    </div>
+
+    {% if summary %}
+    
+    {% if chart_data %}
+    <div id="mathDataStore" 
+         data-tfidf="{{ chart_data.tfidf }}"
+         data-pos="{{ chart_data.pos }}"
+         data-sem="{{ chart_data.semantic }}"
+         data-str="{{ chart_data.struct }}"
+         style="display: none;"></div>
+    {% endif %}
+
+    <div class="results-container" id="resultsGrid">
+        <div class="summary-panel">
+            <div class="panel-header">
+                <h2>Generated Summary</h2>
+                <div>
+                    <button class="btn-outline" style="padding: 6px 12px; font-size: 0.9rem;" onclick="copyToClipboard()" id="copyBtn">Copy Text</button>
+                    <button class="btn-outline" style="padding: 6px 12px; font-size: 0.9rem; margin-left: 5px;" onclick="toggleAnalytics()">View Analytics</button>
+                </div>
+            </div>
+            
+            <ul class="bullet-list" id="bulletList">
+                {% for bullet in summary %}
+                    <li>{{ bullet }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+
+        <div class="analytics-panel">
+            <div class="panel-header">
+                <h2>Extraction Analytics</h2>
+            </div>
+            
+            <div class="chart-wrapper">
+                <canvas id="mathChart"></canvas>
+            </div>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Sentence</th>
+                        <th>TF-IDF</th>
+                        <th>POS</th>
+                        <th>Sem</th>
+                        <th>Str</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in analysis %}
+                    <tr class="{% if row.is_selected %}row-selected{% endif %}">
+                        <td>{{ row.index }}</td>
+                        <td title="{{ row.sentence }}">{{ row.sentence[:30] }}...</td>
+                        <td>{{ row.tfidf }}</td>
+                        <td>{{ row.pos }}</td>
+                        <td>{{ row.semantic }}</td>
+                        <td>{{ row.struct }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+    function copyToClipboard() {
+        const items = document.querySelectorAll('#bulletList li');
+        let text = "";
+        items.forEach(i => text += "- " + i.innerText + "\n");
+        navigator.clipboard.writeText(text).then(() => {
+            document.getElementById('copyBtn').innerText = "Copied!";
+            setTimeout(() => document.getElementById('copyBtn').innerText = "Copy Text", 2000);
+        });
+    }
+
+    function toggleAnalytics() {
+        const grid = document.getElementById('resultsGrid');
+        grid.classList.toggle('show-analytics');
+        
+        const dataStore = document.getElementById('mathDataStore');
+        
+        // Render chart safely using the hidden data attributes
+        if (grid.classList.contains('show-analytics') && dataStore && !window.chartRendered) {
+            
+            const valTfidf = parseFloat(dataStore.getAttribute('data-tfidf'));
+            const valPos = parseFloat(dataStore.getAttribute('data-pos'));
+            const valSem = parseFloat(dataStore.getAttribute('data-sem'));
+            const valStr = parseFloat(dataStore.getAttribute('data-str'));
+
+            new Chart(document.getElementById('mathChart').getContext('2d'), {
+                type: 'pie',
+                data: {
+                    labels: ['TF-IDF (α)', 'POS (β)', 'Semantic (γ)', 'Structural (δ)'],
+                    datasets: [{
+                        data: [valTfidf, valPos, valSem, valStr],
+                        backgroundColor: ['#2563eb', '#64748b', '#94a3b8', '#e2e8f0'],
+                        borderWidth: 0
+                    }]
+                },
+                options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+            });
+            window.chartRendered = true;
+        }
+    }
+</script>
+
+</body>
+</html>
