@@ -19,7 +19,7 @@
         }
         .container { max-width: 1200px; width: 100%; }
         
-        .header { text-align: center; margin-bottom: 40px; }
+        .header { text-align: center; margin-bottom: 25px; }
         .header h1 { color: var(--primary); margin: 0 0 10px 0; }
         .header p { color: var(--text-muted); margin: 0; font-size: 1.1rem; }
 
@@ -93,6 +93,14 @@
         <p>Mathematical Extractive Architecture</p>
     </div>
 
+    <div style="background-color: #1e293b; border: 1px solid #334155; padding: 15px; border-radius: 8px; margin-bottom: 25px; text-align: center; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
+        <h4 style="color: #94a3b8; margin-top: 0; font-size: 12px; letter-spacing: 1px; text-transform: uppercase;">Verified Model Accuracy (CNN/DailyMail Test Split)</h4>
+        <div style="display: flex; justify-content: space-around; color: white; font-family: 'Courier New', Courier, monospace; font-weight: bold; font-size: 1.1rem;">
+            <div><span style="color: #38bdf8;">ROUGE-1:</span> {{ scores['ROUGE-1_Percentage'] }}%</div>
+            <div><span style="color: #a78bfa;">ROUGE-2:</span> {{ scores['ROUGE-2_Percentage'] }}%</div>
+            <div><span style="color: #34d399;">ROUGE-L:</span> {{ scores['ROUGE-L_Percentage'] }}%</div>
+        </div>
+    </div>
     <div class="card">
         <form method="POST" action="/" onsubmit="document.getElementById('loadingScreen').style.display='flex'">
             <textarea name="raw_text" placeholder="Input source document here..." required>{{ original_text }}</textarea>
@@ -191,7 +199,6 @@
         
         const dataStore = document.getElementById('mathDataStore');
         
-        // Render chart safely using the hidden data attributes
         if (grid.classList.contains('show-analytics') && dataStore && !window.chartRendered) {
             
             const valTfidf = parseFloat(dataStore.getAttribute('data-tfidf'));

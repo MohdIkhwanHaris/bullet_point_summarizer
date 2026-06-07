@@ -4,6 +4,7 @@ warnings.filterwarnings("ignore")
 from datasets import load_dataset
 from rouge_score import rouge_scorer
 import numpy as np
+import json
 
 # We can import your existing algorithm directly from your web app!
 import app 
@@ -24,9 +25,11 @@ for i, example in enumerate(dataset):
     article_text = example['article']
     human_reference = example['highlights'] # These are the true, human-written bullet points
 
-    # 1. Feed the article into YOUR algorithm
-    raw_sents, clean_sents, full_doc = app.preprocess_text(article_text)
-    generated_bullets, _ = app.extract_top_sentences(raw_sents, clean_sents, full_doc, top_n=3)
+    # 1. Feed the article into YOUR algorithm 
+    raw_sents, clean_sents = app.preprocess_text(article_text)
+    
+    # NEW FIX: We use two underscores to catch and ignore the scorecard and chart data
+    generated_bullets, _, _ = app.extract_top_sentences(raw_sents, clean_sents, top_n=3)
 
     # Skip if the text was too short to summarize
     if not generated_bullets:
@@ -56,8 +59,6 @@ print(f"ROUGE-2 (Two-Word Phrase Match): {np.mean(rouge_2_scores) * 100:.2f}%")
 print(f"ROUGE-L (Sentence Flow Match):   {np.mean(rouge_L_scores) * 100:.2f}%")
 print("="*40)
 print("Note: In unsupervised extractive NLP, ROUGE-1 scores above 35% are considered highly successful!")
-
-import json
 
 # 4. Bundle the final averages into a dictionary and convert NumPy floats to standard Python floats
 final_results = {

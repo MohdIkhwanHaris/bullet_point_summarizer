@@ -1,10 +1,11 @@
 import warnings
 warnings.filterwarnings("ignore", category=UserWarning)
 
+import json # <-- NEW: Needed to read your benchmark scores
 from flask import Flask, render_template, request
 import spacy
 from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import cosine_similarity # <-- NEW: From your friend's code
+from sklearn.metrics.pairwise import cosine_similarity
 import numpy as np
 import nltk
 from nltk.corpus import wordnet as wn
@@ -63,7 +64,6 @@ def extract_top_sentences(original_sentences, cleaned_sentences, top_n=3):
     if target_n == 0:
         return [], [], None
 
-    # 1. Base Matrix Setup
     vectorizer = TfidfVectorizer()
     tfidf_matrix = vectorizer.fit_transform(cleaned_sentences)
     
@@ -78,7 +78,6 @@ def extract_top_sentences(original_sentences, cleaned_sentences, top_n=3):
     final_scores = []
     scorecard = []
     
-    # 2. Calculate Base Heuristic Scores
     for idx, sent_text in enumerate(original_sentences):
         sent_doc = nlp(sent_text)
         
@@ -101,46 +100,26 @@ def extract_top_sentences(original_sentences, cleaned_sentences, top_n=3):
         })
 
     final_scores = np.array(final_scores)
-
-    # ==========================================
-    # 3. NEW: THE MMR LOOP (Credit: Fabian da goat)
-    # ==========================================
-    
-    # Calculate how mathematically similar every sentence is to every other sentence
     similarity_matrix = cosine_similarity(tfidf_matrix)
+    lambda_param = 0.7  
     
-    lambda_param = 0.7  # 70% focus on relevance, 30% penalty for redundancy
-    
-    # Pick the absolute best sentence to start
     selected_indices = [int(np.argmax(final_scores))]
     candidates = list(set(range(len(original_sentences))) - set(selected_indices))
 
-    # Loop until we have the target number of bullets
     while len(selected_indices) < target_n and candidates:
         mmr_scores = []
-        
         for candidate in candidates:
-            # Relevance (Our custom heuristic score)
             relevance = final_scores[candidate]
-            
-            # Redundancy (Similarity to bullets we ALREADY picked)
             max_similarity = max([similarity_matrix[candidate][s] for s in selected_indices])
-            
-            # The MMR Math
             mmr_score = (lambda_param * relevance) - ((1 - lambda_param) * max_similarity)
             mmr_scores.append((candidate, mmr_score))
 
-        # Pick the sentence that survived the redundancy penalty
         best_candidate = max(mmr_scores, key=lambda x: x[1])[0]
-        
         selected_indices.append(best_candidate)
         candidates.remove(best_candidate)
 
-    # Sort them back into chronological document order
     top_indices = sorted(selected_indices)
-    # ==========================================
 
-    # 4. Finalize Analytics Data
     avg_tfidf, avg_pos, avg_sem, avg_str = 0, 0, 0, 0
     for i in top_indices:
         scorecard[i]["is_selected"] = True
@@ -165,6 +144,16 @@ def home():
     user_input = ""
     num_bullets = 3
 
+    # ==========================================
+    # NEW: Load the Benchmark Scores from the JSON
+    # ==========================================
+    try:
+        with open('rouge_evaluation_scores.json', 'r') as file:
+            benchmark_scores = json.load(file)
+    except FileNotFoundError:
+        # Fallback if the file gets deleted or moved
+        benchmark_scores = {"ROUGE-1_Percentage": "N/A", "ROUGE-2_Percentage": "N/A", "ROUGE-L_Percentage": "N/A"}
+
     if request.method == "POST":
         user_input = request.form.get("raw_text", "")
         num_bullets = int(request.form.get("num_bullets", 3))
@@ -176,7 +165,8 @@ def home():
     return render_template("index.html", 
                            summary=summary_bullets, analysis=analysis_data,
                            chart_data=chart_data, original_text=user_input, 
-                           num_bullets=num_bullets)
+                           num_bullets=num_bullets,
+                           scores=benchmark_scores) # <-- NEW: Pass scores to HTML
 
 if __name__ == "__main__":
     app.run(debug=True)
