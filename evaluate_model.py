@@ -56,3 +56,18 @@ print(f"ROUGE-2 (Two-Word Phrase Match): {np.mean(rouge_2_scores) * 100:.2f}%")
 print(f"ROUGE-L (Sentence Flow Match):   {np.mean(rouge_L_scores) * 100:.2f}%")
 print("="*40)
 print("Note: In unsupervised extractive NLP, ROUGE-1 scores above 35% are considered highly successful!")
+
+import json
+
+# 4. Bundle the final averages into a dictionary and convert NumPy floats to standard Python floats
+final_results = {
+    "ROUGE-1_Percentage": round(float(np.mean(rouge_1_scores)) * 100, 2),
+    "ROUGE-2_Percentage": round(float(np.mean(rouge_2_scores)) * 100, 2),
+    "ROUGE-L_Percentage": round(float(np.mean(rouge_L_scores)) * 100, 2)
+}
+
+# Save to JSON file
+with open("rouge_evaluation_scores.json", "w") as outfile:
+    json.dump(final_results, outfile, indent=4)
+    
+print("✅ Successfully saved ROUGE scores to rouge_evaluation_scores.json!")
